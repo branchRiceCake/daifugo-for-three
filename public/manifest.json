@@ -1,0 +1,14 @@
+{
+  "manifest_version": "1",
+  "name": "Daifugo Game For Three",
+  "short_name": "Daifugo",
+  "version": "0.1.0",
+  "description": "",
+  "icons": [
+    {
+      "src": "images/icon-128x128.png",
+      "sizes": "128x128",
+      "type": "image/png"
+    }
+  ]
+}

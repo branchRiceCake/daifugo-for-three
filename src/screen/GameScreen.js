@@ -120,7 +120,7 @@ const GameScreen = ({ onGameEnd, round, blindCard, blindCardIndex, initialPlayer
 
   // カード選択処理
   const handleCardSelection = (playerId, card) => {
-    if (!(playerId === 'player3' && playerId === 'player1')) {
+    if (!(playerId === 'player3' || playerId === 'player1')) {
       return;
     }
     if (playerId === 'player3' && parseInt(card.slice(0, 2), 10) !== exchangeCardForPlayer3) {
@@ -282,7 +282,7 @@ const GameScreen = ({ onGameEnd, round, blindCard, blindCardIndex, initialPlayer
           // 禁止上がりか否かで順位を修正
           if (handleProhibitedFinish(hands)) {
             alert('禁止上がり');
-            if (newPlayers.some(player => player.isProhibiting === 3)) {
+            if (newPlayers.some(player => player.rank === 3)) {
               // 既に大貧民がいる場合は平民とする
               newPlayer.rank = 2;
               newPlayer.beforeRank = 2;
@@ -354,12 +354,13 @@ const GameScreen = ({ onGameEnd, round, blindCard, blindCardIndex, initialPlayer
     console.log(newPassedPlayerIndexes);
     const newPlayers = [...players];
     let nextPlayerIndex = (currentPlayerIndex + 1) % players.length;
+    const nextPlayerIndexIfAllPass = newPlayers[nextPlayerIndex].rank === null ? nextPlayerIndex : (nextPlayerIndex + 1) % players.length;
     let loopCount = 0;
     while (newPlayers[nextPlayerIndex].rank !== null || newPassedPlayerIndexes.includes(nextPlayerIndex)) {
       nextPlayerIndex = (nextPlayerIndex + 1) % players.length;
       loopCount++;
       if (players.length < loopCount) {
-        nextPlayerIndex = newPassedPlayerIndexes[0];
+        nextPlayerIndex = nextPlayerIndexIfAllPass;
         break;
       }
     }

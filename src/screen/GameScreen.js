@@ -53,7 +53,7 @@ const GameScreen = ({ onGameEnd, round, blindCard, blindCardIndex, initialPlayer
   const [exchangeCardForPlayer3, setExchangeCardForPlayer3] = useState(99); // 大貧民が交換可能なカードを管理
   const [isStartGame, setIsStartGame] = useState(false); // ゲームを開始する判定に使用
   const [lastPlayerId, setLastPlayerId] = useState(null); // 最後にカードを出したプレイヤーのIDを管理
-  const [passedPlayerIndexes, setPassedPlayerIndexes] = useState([]); // パスをしたプレイヤーの番号を管理
+  const [passedPlayerIds, setPassedPlayerIds] = useState([]); // パスをしたプレイヤーのIDを管理
   const [isRevolution, setIsRevolution] = useState(false); // 革命状態を管理
   const [currentSuits, setCurrentSuits] = useState([]); // 縛りのスートを管理
 
@@ -241,12 +241,36 @@ const GameScreen = ({ onGameEnd, round, blindCard, blindCardIndex, initialPlayer
     const newPlayers = [...players];
     let newFieldCard = [];
     let isReset = false;
+    let isFinish = false;
     newPlayers.forEach((newPlayer, index) => {
       if (newPlayer.id === playerId) {
         const hands = cardToPlay ? cardToPlay : newPlayer.selectedHand;
         newPlayer.hand = newPlayer.hand.filter((card) => !(hands.includes(`${card.value}${card.suit}`)));
         newFieldCard.push(...hands);
         newPlayer.selectedHand = [];
+        // 手札を出し切った場合、順位を設定
+        if (newPlayer.hand.length === 0 && newPlayer.rank === null) {
+          isFinish = true;
+          // 禁止上がりか否かで順位を修正
+          if (handleProhibitedFinish(hands)) {
+            alert('禁止上がり');
+            if (newPlayers.some(player => player.rank === 3)) {
+              // 既に大貧民がいる場合は平民とする
+              newPlayer.rank = 2;
+              newPlayer.beforeRank = 2;
+            } else {
+              newPlayer.rank = 3;
+              newPlayer.beforeRank = 3;
+            }
+          } else {
+            newPlayer.rank = rankCounter;
+            // 都落ち処理
+            handleMiyakoOchi(newPlayers);
+            newPlayer.beforeRank = rankCounter;
+            setRankCounter(rankCounter + 1);
+          }
+        }
+
         // 革命の判定
         if (handleRevolution(hands)) {
           // 革命が発生した場合の処理
@@ -275,29 +299,6 @@ const GameScreen = ({ onGameEnd, round, blindCard, blindCardIndex, initialPlayer
         if (!isReset && handleShibari(hands)) {
           alert('縛り');
         }
-
-        // 手札を出し切った場合、順位を設定
-        // TODO: 2を3枚出すのが禁止上がりになる場合、革命処理等より前に記載
-        if (newPlayer.hand.length === 0 && newPlayer.rank === null) {
-          // 禁止上がりか否かで順位を修正
-          if (handleProhibitedFinish(hands)) {
-            alert('禁止上がり');
-            if (newPlayers.some(player => player.rank === 3)) {
-              // 既に大貧民がいる場合は平民とする
-              newPlayer.rank = 2;
-              newPlayer.beforeRank = 2;
-            } else {
-              newPlayer.rank = 3;
-              newPlayer.beforeRank = 3;
-            }
-          } else {
-            newPlayer.rank = rankCounter;
-            // 都落ち処理
-            handleMiyakoOchi(newPlayers);
-            newPlayer.beforeRank = rankCounter;
-            setRankCounter(rankCounter + 1);
-          }
-        }
         setLastPlayerId(playerId); // 最後にカードを出したプレイヤーのIDを更新
       }
     });
@@ -310,9 +311,15 @@ const GameScreen = ({ onGameEnd, round, blindCard, blindCardIndex, initialPlayer
     } else if (remainingPlayers.length === 1) {
       // 最後の一人になった場合、そのプレイヤーに現在最下位の順位を設定
       if (newPlayers.some(player => player.rank === 3)) {
-        // 既に大貧民がいる場合は平民とする
-        remainingPlayers[0].rank = 2;
-        remainingPlayers[0].beforeRank = 2;
+        if (newPlayers.some(player => player.rank === 2)) {
+          // 既に大貧民、平民がいる場合は大富豪とする
+          remainingPlayers[0].rank = 1;
+          remainingPlayers[0].beforeRank = 1;
+        } else {
+          // 既に大貧民がいる場合は平民とする
+          remainingPlayers[0].rank = 2;
+          remainingPlayers[0].beforeRank = 2;
+        }
       } else {
         remainingPlayers[0].rank = 3;
         remainingPlayers[0].beforeRank = 3;
@@ -322,11 +329,18 @@ const GameScreen = ({ onGameEnd, round, blindCard, blindCardIndex, initialPlayer
         newPlayer.isMyTurn = false;
       });
     } else if (isReset) {
-      resetField(newPlayers[currentPlayerIndex].id);
-      setCurrentPlayerIndex(currentPlayerIndex);
+      let nextPlayerIndex = currentPlayerIndex;
+      if (isFinish) {
+        nextPlayerIndex = (currentPlayerIndex + 1) % players.length;
+        while (newPlayers[nextPlayerIndex].rank !== null) {
+          nextPlayerIndex = (nextPlayerIndex + 1) % players.length;
+        }
+      }
+      resetField(newPlayers[nextPlayerIndex].id);
+      setCurrentPlayerIndex(nextPlayerIndex);
     } else {
       let nextPlayerIndex = (currentPlayerIndex + 1) % players.length;
-      while (newPlayers[nextPlayerIndex].rank !== null || passedPlayerIndexes.includes(nextPlayerIndex)) {
+      while (newPlayers[nextPlayerIndex].rank !== null || passedPlayerIds.includes(newPlayers[nextPlayerIndex].id)) {
         nextPlayerIndex = (nextPlayerIndex + 1) % players.length;
       }
       newPlayers.forEach((newPlayer, index) => {
@@ -348,15 +362,14 @@ const GameScreen = ({ onGameEnd, round, blindCard, blindCardIndex, initialPlayer
 
   // パス処理
   const handlePass = () => {
-    let newPassedPlayerIndexes = [...passedPlayerIndexes];
-    newPassedPlayerIndexes.push(currentPlayerIndex);
-    setPassedPlayerIndexes(newPassedPlayerIndexes);
-    console.log(newPassedPlayerIndexes);
     const newPlayers = [...players];
+    let newPassedPlayerIds = [...passedPlayerIds];
+    newPassedPlayerIds.push(newPlayers[currentPlayerIndex].id);
+    setPassedPlayerIds(newPassedPlayerIds);
     let nextPlayerIndex = (currentPlayerIndex + 1) % players.length;
     const nextPlayerIndexIfAllPass = newPlayers[nextPlayerIndex].rank === null ? nextPlayerIndex : (nextPlayerIndex + 1) % players.length;
     let loopCount = 0;
-    while (newPlayers[nextPlayerIndex].rank !== null || newPassedPlayerIndexes.includes(nextPlayerIndex)) {
+    while (newPlayers[nextPlayerIndex].rank !== null || newPassedPlayerIds.includes(newPlayers[nextPlayerIndex].id)) {
       nextPlayerIndex = (nextPlayerIndex + 1) % players.length;
       loopCount++;
       if (players.length < loopCount) {
@@ -466,7 +479,7 @@ const GameScreen = ({ onGameEnd, round, blindCard, blindCardIndex, initialPlayer
     setFieldNum(0);
     setFieldCardStock([]);
     setLastPlayerId(playerId);
-    setPassedPlayerIndexes([]);
+    setPassedPlayerIds([]);
     setCurrentSuits([]);
   }
   // 都落ち
@@ -524,7 +537,7 @@ const GameScreen = ({ onGameEnd, round, blindCard, blindCardIndex, initialPlayer
     if (currentPlayer.isCpu) {
       handleCpuTurn(currentPlayer);
     }
-  }, [currentPlayerIndex, passedPlayerIndexes]);
+  }, [currentPlayerIndex, passedPlayerIds]);
 
   return (
     <div>
@@ -542,22 +555,22 @@ const GameScreen = ({ onGameEnd, round, blindCard, blindCardIndex, initialPlayer
                 <Card
                   key={cardIndex}
                   mark={`${card.value}${card.suit}`}
-                  isUser={player.isUser}
+                  isUser={player.isShow}
                   isSelected={player.selectedHand.includes(`${card.value}${card.suit}`)}
                   onClick={() => handleCardClick(player.id, cardIndex)}
                   style={{
-                    width: '30px',
+                    width: '40px',
                   }}
                 />
               ))}
             </div>
             <div style={{ border: player.isMyTurn ? '2px solid blue' : 'none', padding: '10px', margin: '10px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-              {passedPlayerIndexes.includes((index + 1)) && (
+              {passedPlayerIds.includes(player.id) && (
                   <div style={{ position: 'absolute' }}>
                       <img src={require(`../images/pass.png`)} alt="PASS" />
                   </div>
               )}
-              <h3>{player.name}：階級 {player.beforeRank !== null ? `${rankNames[player.beforeRank]}` : '平民'}  {player.hand.length}枚</h3>
+              <h3>{player.name}：{player.beforeRank !== null ? `階級 ${rankNames[player.beforeRank]}` : '-'}  {player.hand.length}枚</h3>
             </div>
           </div>
         ))}
@@ -627,19 +640,19 @@ const GameScreen = ({ onGameEnd, round, blindCard, blindCardIndex, initialPlayer
       {players.filter(player => !player.isCpu).map((player) => (
         <div key={player.id}>
           <div style={{ border: player.isMyTurn ? '2px solid blue' : 'none', padding: '10px', margin: '10px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-            {passedPlayerIndexes.includes(0) && (
+            {passedPlayerIds.includes(player.id) && (
                 <div style={{ position: 'absolute' }}>
                     <img src={require(`../images/pass.png`)} alt="PASS" />
                 </div>
             )}
-            <h3>{player.name}：階級 {player.beforeRank !== null ? `${rankNames[player.beforeRank]}` : '平民'}  {player.hand.length}枚</h3>
+            <h3>{player.name}：{player.beforeRank !== null ? `階級 ${rankNames[player.beforeRank]}` : '-'}  {player.hand.length}枚</h3>
           </div>
           {isStartGame && (
             <div style={{ display: 'flex' }}>
               {player.hand.map((card, cardIndex) => (
                   <Card
                     mark={`${card.value}${card.suit}`}
-                    isUser={player.isUser}
+                    isUser={player.isShow}
                     isSelected={player.selectedHand.includes(`${card.value}${card.suit}`)}
                     onClick={() => handleCardClick(player.id, cardIndex)}
                     style={{

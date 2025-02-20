@@ -112,7 +112,6 @@ const GameScreen = ({ onGameEnd, round, blindCard, blindCardIndex, initialPlayer
       }
     } else {
       const randomPlayerIndex = Math.floor(Math.random() * newPlayers.length);
-      newPlayers[randomPlayerIndex].isMyTurn = true;
       setPlayers(newPlayers);
       setCurrentPlayerIndex(randomPlayerIndex);
     }
@@ -144,10 +143,7 @@ const GameScreen = ({ onGameEnd, round, blindCard, blindCardIndex, initialPlayer
         player.hand = player.hand.filter(card => `${card.value}${card.suit}` !== selectedCard3);
         player.hand.push({ value: selectedCard1.slice(0, -1), suit: selectedCard1.slice(-1) });
         player.hand = sortHand(player.hand);
-        player.isMyTurn = true;
         setCurrentPlayerIndex(index);
-      } else {
-        player.isMyTurn = false;
       }
       return player;
     });
@@ -304,11 +300,7 @@ const GameScreen = ({ onGameEnd, round, blindCard, blindCardIndex, initialPlayer
     });
     // プレイヤーのターンを更新
     let remainingPlayers = newPlayers.filter(player => player.rank === null);
-    if (remainingPlayers.length === 0) {
-      newPlayers.forEach((newPlayer) => {
-        newPlayer.isMyTurn = false;
-      });
-    } else if (remainingPlayers.length === 1) {
+    if (remainingPlayers.length === 1) {
       // 最後の一人になった場合、そのプレイヤーに現在最下位の順位を設定
       if (newPlayers.some(player => player.rank === 3)) {
         if (newPlayers.some(player => player.rank === 2)) {
@@ -340,18 +332,21 @@ const GameScreen = ({ onGameEnd, round, blindCard, blindCardIndex, initialPlayer
       setCurrentPlayerIndex(nextPlayerIndex);
     } else {
       let nextPlayerIndex = (currentPlayerIndex + 1) % players.length;
+      const nextPlayerIndexIfAllPass = newPlayers[nextPlayerIndex].rank === null ? nextPlayerIndex : (nextPlayerIndex + 1) % players.length;
+      let loopCount = 0;
       while (newPlayers[nextPlayerIndex].rank !== null || passedPlayerIds.includes(newPlayers[nextPlayerIndex].id)) {
         nextPlayerIndex = (nextPlayerIndex + 1) % players.length;
+        loopCount++;
+        if (players.length < loopCount) {
+          nextPlayerIndex = nextPlayerIndexIfAllPass;
+          break;
+        }
       }
-      newPlayers.forEach((newPlayer, index) => {
-        newPlayer.isMyTurn = index === nextPlayerIndex;
-      });
       setCurrentPlayerIndex(nextPlayerIndex);
     }
     setPlayers(newPlayers);
     if (!isReset) {
       // プレイヤー情報と場の最新カードを更新
-      setPlayers(newPlayers);
       setFieldCard(newFieldCard);
       setFieldNum(getMinFieldCardValue(newFieldCard));
       let newFieldCardStock = [...fieldCardStock];
@@ -362,12 +357,18 @@ const GameScreen = ({ onGameEnd, round, blindCard, blindCardIndex, initialPlayer
 
   // パス処理
   const handlePass = () => {
+    /**
+     * 以下の条件の場合、プレイヤー1のターンで流れない仕様
+     * プレイヤー1がカードを出す→プレイヤー2がカードを出して上がる→プレイヤー3がパスをする
+     */
     const newPlayers = [...players];
     let newPassedPlayerIds = [...passedPlayerIds];
     newPassedPlayerIds.push(newPlayers[currentPlayerIndex].id);
     setPassedPlayerIds(newPassedPlayerIds);
     let nextPlayerIndex = (currentPlayerIndex + 1) % players.length;
-    const nextPlayerIndexIfAllPass = newPlayers[nextPlayerIndex].rank === null ? nextPlayerIndex : (nextPlayerIndex + 1) % players.length;
+    const checkIndex = (element) => element.id === lastPlayerId;
+    const lastPlayerIndex = newPlayers.findIndex(checkIndex);
+    const nextPlayerIndexIfAllPass = newPlayers[lastPlayerIndex].rank === null ? lastPlayerIndex : (lastPlayerIndex + 1) % players.length;
     let loopCount = 0;
     while (newPlayers[nextPlayerIndex].rank !== null || newPassedPlayerIds.includes(newPlayers[nextPlayerIndex].id)) {
       nextPlayerIndex = (nextPlayerIndex + 1) % players.length;
@@ -377,30 +378,17 @@ const GameScreen = ({ onGameEnd, round, blindCard, blindCardIndex, initialPlayer
         break;
       }
     }
-    // 次のプレイヤーが最後にカードを出したプレイヤーの場合、場のカードをリセットする
+    // 次のプレイヤーが最後にカードを出したプレイヤーの場合
     if (newPlayers[nextPlayerIndex].id === lastPlayerId) {
+      if (newPlayers[nextPlayerIndex].rank !== null) {
+        setCurrentPlayerIndex(nextPlayerIndex);
+        setPlayers(newPlayers);
+        return;
+      }
       resetField(lastPlayerId);
-      newPlayers.forEach(player => {
-        if (player.id === lastPlayerId) {
-          player.isMyTurn = true; // 最後にカードを出したプレイヤーを親にする
-        } else {
-          player.isMyTurn = false;
-        }
-      });
     } else if (newPlayers.length < loopCount) {
       // ループ数が既定値を上回った場合もリセットする
       resetField(newPlayers[nextPlayerIndex].id);
-      newPlayers.forEach(player => {
-        if (player.id === newPlayers[nextPlayerIndex].id) {
-          player.isMyTurn = true; // 最後にカードを出した次のプレイヤーを親にする
-        } else {
-          player.isMyTurn = false;
-        }
-      });
-    } else {
-      newPlayers.forEach((newPlayer, index) => {
-        newPlayer.isMyTurn = index === nextPlayerIndex;
-      });
     }
     setCurrentPlayerIndex(nextPlayerIndex);
     setPlayers(newPlayers);
@@ -503,7 +491,7 @@ const GameScreen = ({ onGameEnd, round, blindCard, blindCardIndex, initialPlayer
     if (currentSuits.length > 0) return false;
     const suits = selectedHand.map(card => card.slice(2));
     const fieldSuits = fieldCard.map(card => card.slice(2));
-    if (Array(suits).toString() === Array(fieldSuits).toString()) {
+    if (fieldCard.length !== 0 && Array(suits).toString() === Array(fieldSuits).toString()) {
       setCurrentSuits([...suits]);
       return true;
     }
@@ -533,6 +521,11 @@ const GameScreen = ({ onGameEnd, round, blindCard, blindCardIndex, initialPlayer
   // CPU判定
   useEffect(() => {
     if (currentPlayerIndex === null) return;
+    const newPlayers = [...players];
+    newPlayers.forEach((newPlayer, index) => {
+      newPlayer.isMyTurn = (index === currentPlayerIndex && newPlayer.rank === null);
+    });
+    setPlayers(newPlayers);
     const currentPlayer = players[currentPlayerIndex];
     if (currentPlayer.isCpu) {
       handleCpuTurn(currentPlayer);
@@ -565,7 +558,7 @@ const GameScreen = ({ onGameEnd, round, blindCard, blindCardIndex, initialPlayer
               ))}
             </div>
             <div style={{ border: player.isMyTurn ? '2px solid blue' : 'none', padding: '10px', margin: '10px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-              {passedPlayerIds.includes(player.id) && (
+              {passedPlayerIds.includes(player.id) && player.rank === null && (
                   <div style={{ position: 'absolute' }}>
                       <img src={require(`../images/pass.png`)} alt="PASS" />
                   </div>
@@ -640,7 +633,7 @@ const GameScreen = ({ onGameEnd, round, blindCard, blindCardIndex, initialPlayer
       {players.filter(player => !player.isCpu).map((player) => (
         <div key={player.id}>
           <div style={{ border: player.isMyTurn ? '2px solid blue' : 'none', padding: '10px', margin: '10px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-            {passedPlayerIds.includes(player.id) && (
+            {passedPlayerIds.includes(player.id) && player.rank === null && (
                 <div style={{ position: 'absolute' }}>
                     <img src={require(`../images/pass.png`)} alt="PASS" />
                 </div>

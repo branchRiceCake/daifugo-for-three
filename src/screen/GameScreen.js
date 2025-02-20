@@ -682,6 +682,7 @@ const GameScreen = ({ onGameEnd, round, blindCard, blindCardIndex, initialPlayer
               )}
               {player.beforeRank === 2 && (
                 <div>
+                  <h4>カードを交換するボタンを押下してください</h4>
                   {player.hand.map((card, cardIndex) => (
                     <Card
                       key={cardIndex}
@@ -696,6 +697,7 @@ const GameScreen = ({ onGameEnd, round, blindCard, blindCardIndex, initialPlayer
               )}
               {player.beforeRank === 3 && (
                 <div>
+                  <h4>強いカードを選択してください</h4>
                   {player.hand.map((card, cardIndex) => (
                     <Card
                       key={cardIndex}

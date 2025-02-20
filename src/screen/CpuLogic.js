@@ -90,8 +90,6 @@ const getPlayableCards = (hand, fieldCard, isRevolution, currentSuits) => {
 
   const patternIndex = getCanPlayCard(patterns, fieldCard, isRevolution, currentSuits);
   if (patternIndex !== null) {
-    if (patternIndex !== 0 && patternIndex === (patterns.length - 1)) return null;
-
     return patterns[patternIndex];
   }
   return null;
@@ -119,6 +117,11 @@ const getCanPlayCard = (patterns, fieldCard, isRevolution, currentSuits) => {
       pattern.every(card => ([jokerValue, eightValue].includes(card.slice(0, 2)) || card === '011'))
     ) {
       prohibitedFinish = index;
+    }
+    if (numbers.length === 1 && numbers[0] === jokerValue && pattern[0] === '011') {
+      prohibitedFinish = index;
+      returnIndex = index;
+      return;
     }
 
     const patternNums = pattern.map(card => card.slice(0, 2));
@@ -181,7 +184,7 @@ const getPatterns = (cards) => {
     patterns.push(sameValuePatterns[value]);
     if (sameValuePatterns[value].length > 0 && jokers.length > 0) {
       patterns.push([...sameValuePatterns[value], `${jokers[0].value}${jokers[0].suit}`]);
-      patterns.push([`${jokers[0].value}${jokers[0].suit}`]);
+      if (!patterns.includes(`${jokers[0].value}${jokers[0].suit}`)) patterns.push([`${jokers[0].value}${jokers[0].suit}`]);
     }
   }
 
@@ -211,7 +214,6 @@ const getPatterns = (cards) => {
       patterns.push(sequence);
     }
   }
-
   return patterns;
 };
 

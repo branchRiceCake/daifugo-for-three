@@ -73,4 +73,5 @@ const Card = ({ mark, isUser, isSelected, onClick, style = {}, onDragStart, onDr
   );
 }
 
+export { getValueByKey };
 export default Card;

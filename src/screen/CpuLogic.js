@@ -20,9 +20,9 @@ const prioritizeCards = (patterns, isRevolution) => {
       if (bFirstTwo === '01' && bFirstTwo !== '011') return -1;
     }
 
-    // 2. eightValueとjokerValueの優先度を最後から2番目にする。両方ある場合の優先度は等しい
-    const aContainsOnlyEightOrJoker = a.every(card => card.slice(0, 2) === eightValue || card.slice(0, 2) === jokerValue);
-    const bContainsOnlyEightOrJoker = b.every(card => card.slice(0, 2) === eightValue || card.slice(0, 2) === jokerValue);
+    // 2. jokerValueの優先度を最後から2番目にする。両方ある場合の優先度は等しい
+    const aContainsOnlyEightOrJoker = a.every(card => card.slice(0, 2) === jokerValue);
+    const bContainsOnlyEightOrJoker = b.every(card => card.slice(0, 2) === jokerValue);
     if (aContainsOnlyEightOrJoker && !bContainsOnlyEightOrJoker) return 1;
     if (bContainsOnlyEightOrJoker && !aContainsOnlyEightOrJoker) return -1;
 

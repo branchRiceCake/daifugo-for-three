@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { initializeDeck, shuffleDeck } from '../components/Deck';
-import Card from '../components/Card';
+import Card, { getValueByKey } from '../components/Card';
 import { getPlayableCards, determineExchangeCard } from './CpuLogic';
 
 const rankScores = { 1: 6, 2: 3, 3: 0 };
@@ -282,7 +282,9 @@ const GameScreen = ({ onGameEnd, round, blindCard, blindCardIndex, initialPlayer
           numbers.forEach(num => uniqueNumbers.add(num));
         }
         if (uniqueNumbers.size === 1 && numbers[0] === specialNumber.eight) {
-          alert('8切り');
+          let handMarks = [];
+          hands.forEach(hand => handMarks.push(getValueByKey(hand)));
+          alert('8切り：' + handMarks.join(' '));
           isReset = true;
         }
         // スペ3返し判定
@@ -293,13 +295,17 @@ const GameScreen = ({ onGameEnd, round, blindCard, blindCardIndex, initialPlayer
 
         // 縛り判定※8切り、スペ3返しの場合は場が流れるため採用しない
         if (!isReset && handleShibari(hands)) {
-          alert('縛り');
+          let handSuits = [];
+          hands.forEach(hand => handSuits.push(suitMark[parseInt(hand.slice(2))]));
+          alert('縛り' + handSuits.join(' '));
         }
         setLastPlayerId(playerId); // 最後にカードを出したプレイヤーのIDを更新
       }
     });
     // プレイヤーのターンを更新
     let remainingPlayers = newPlayers.filter(player => player.rank === null);
+    let outputCardPlayers = newPlayers.filter(player => (player.rank === null && !passedPlayerIds.includes(player.id)));
+    console.log(outputCardPlayers)
     if (remainingPlayers.length === 1) {
       // 最後の一人になった場合、そのプレイヤーに現在最下位の順位を設定
       if (newPlayers.some(player => player.rank === 3)) {
@@ -320,7 +326,7 @@ const GameScreen = ({ onGameEnd, round, blindCard, blindCardIndex, initialPlayer
       newPlayers.forEach((newPlayer) => {
         newPlayer.isMyTurn = false;
       });
-    } else if (isReset) {
+    } else if (isReset || (outputCardPlayers.length === 1 && newPlayers[currentPlayerIndex].id === lastPlayerId)) {
       let nextPlayerIndex = currentPlayerIndex;
       if (isFinish) {
         nextPlayerIndex = (currentPlayerIndex + 1) % players.length;
@@ -387,7 +393,7 @@ const GameScreen = ({ onGameEnd, round, blindCard, blindCardIndex, initialPlayer
       }
       resetField(lastPlayerId);
     } else if (newPlayers.length < loopCount) {
-      // ループ数が既定値を上回った場合もリセットする
+      // ループ数が既定値を上回った場合もリセットする	
       resetField(newPlayers[nextPlayerIndex].id);
     }
     setCurrentPlayerIndex(nextPlayerIndex);

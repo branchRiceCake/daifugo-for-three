@@ -305,7 +305,6 @@ const GameScreen = ({ onGameEnd, round, blindCard, blindCardIndex, initialPlayer
     // プレイヤーのターンを更新
     let remainingPlayers = newPlayers.filter(player => player.rank === null);
     let outputCardPlayers = newPlayers.filter(player => (player.rank === null && !passedPlayerIds.includes(player.id)));
-    console.log(outputCardPlayers)
     if (remainingPlayers.length === 1) {
       // 最後の一人になった場合、そのプレイヤーに現在最下位の順位を設定
       if (newPlayers.some(player => player.rank === 3)) {
@@ -345,6 +344,7 @@ const GameScreen = ({ onGameEnd, round, blindCard, blindCardIndex, initialPlayer
         loopCount++;
         if (players.length < loopCount) {
           nextPlayerIndex = nextPlayerIndexIfAllPass;
+          resetField(newPlayers[nextPlayerIndex].id);
           break;
         }
       }
@@ -393,8 +393,8 @@ const GameScreen = ({ onGameEnd, round, blindCard, blindCardIndex, initialPlayer
       }
       resetField(lastPlayerId);
     } else if (newPlayers.length < loopCount) {
-      // ループ数が既定値を上回った場合もリセットする	
-      resetField(newPlayers[nextPlayerIndex].id);
+      // ループ数が既定値を上回った場合もリセットする
+      resetField(lastPlayerId);
     }
     setCurrentPlayerIndex(nextPlayerIndex);
     setPlayers(newPlayers);
@@ -495,8 +495,8 @@ const GameScreen = ({ onGameEnd, round, blindCard, blindCardIndex, initialPlayer
   // 縛り
   const handleShibari = (selectedHand) => {
     if (currentSuits.length > 0) return false;
-    const suits = selectedHand.map(card => card.slice(2));
-    const fieldSuits = fieldCard.map(card => card.slice(2));
+    const suits = selectedHand.map(card => card.slice(2)).sort();
+    const fieldSuits = fieldCard.map(card => card.slice(2)).sort();
     if (fieldCard.length !== 0 && Array(suits).toString() === Array(fieldSuits).toString()) {
       setCurrentSuits([...suits]);
       return true;
